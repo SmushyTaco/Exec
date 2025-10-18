@@ -270,7 +270,7 @@ public class ManagedProcess implements ManagedProcessState {
         CompletableFuture<Boolean> seen = new CompletableFuture<>();
 
         try (CheckingConsoleOutputStream checkingConsoleOutputStream =
-                new CheckingConsoleOutputStream(messageInConsole, () -> seen.complete(true))) {
+                new CheckingConsoleOutputStream(messageInConsole, () -> seen.complete(true), null)) {
             stdout.addOutputStream(checkingConsoleOutputStream);
             stderr.addOutputStream(checkingConsoleOutputStream);
 
