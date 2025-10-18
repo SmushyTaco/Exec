@@ -26,11 +26,10 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
-import java.nio.charset.Charset;
-import java.nio.charset.CharsetDecoder;
-import java.nio.charset.CoderResult;
-import java.nio.charset.CodingErrorAction;
+import java.nio.charset.*;
+import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.function.Function;
 
 /**
  * OutputStream which watches out for the occurrence of a keyword (String).
@@ -41,24 +40,30 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 public final class CheckingConsoleOutputStream extends OutputStream {
     private final CharsetDecoder dec;
-    private final @Nullable Runnable onSeen;
-    private final AtomicBoolean seen = new AtomicBoolean(false);
-    private final Kmp kmp;
-    private final CharBuffer cbuf = CharBuffer.allocate(4096);
+    private final @Nullable Function<String, @Nullable String> onMatchNext;
+    private final AtomicBoolean done = new AtomicBoolean(false);
 
-    public CheckingConsoleOutputStream(String literal, @Nullable Runnable onSeen, @Nullable Charset cs) {
+    private String literal;
+    private Kmp kmp;
+
+    private final CharBuffer cbuf = CharBuffer.allocate(4096);
+    @SuppressWarnings("IdentifierName")
+    private boolean pendingCR = false;
+
+    public CheckingConsoleOutputStream(String literal, @Nullable Function<String, @Nullable String> onMatchNext,
+        @Nullable Charset cs) {
         if (literal.isEmpty()) {
             throw new IllegalArgumentException("literal must not be empty");
         }
-        this.dec = (cs == null ? Charset.defaultCharset() : cs)
-                .newDecoder()
+        this.literal = normalizeNl(literal);
+        this.onMatchNext = onMatchNext;
+        this.dec = (cs == null ? Charset.defaultCharset() : cs).newDecoder()
                 .onMalformedInput(CodingErrorAction.REPLACE)
                 .onUnmappableCharacter(CodingErrorAction.REPLACE);
-        this.kmp = new Kmp(literal.replace("\r\n", "\n").replace("\r", "\n"));
-        this.onSeen = onSeen;
+        this.kmp = new Kmp(this.literal);
     }
 
-    public boolean hasSeen() { return seen.get(); }
+    public boolean hasSeen() { return done.get(); }
 
     @Override
     public synchronized void write(int b) throws IOException {
@@ -80,7 +85,7 @@ public final class CheckingConsoleOutputStream extends OutputStream {
             if (cr.isError()) {
                 cr.throwException();
             }
-            drainBuffer(); // Line 83
+            drainBuffer();
             if (hasSeen()) {
                 return;
             }
@@ -102,17 +107,18 @@ public final class CheckingConsoleOutputStream extends OutputStream {
             cr.throwException();
         }
         drainBuffer();
+        if (pendingCR && !hasSeen() && kmp.accept('\n')) {
+            onMatched();
+        }
     }
 
-    @SuppressWarnings("IdentifierName")
-    private boolean pendingCR = false;
     private void drainBuffer() {
         cbuf.flip();
         while (!hasSeen() && cbuf.hasRemaining()) {
             char c = cbuf.get();
             if (pendingCR) {
                 if (kmp.accept('\n')) {
-                    fireOnce();
+                    onMatched();
                 }
                 pendingCR = false;
                 if (c == '\n') {
@@ -120,10 +126,10 @@ public final class CheckingConsoleOutputStream extends OutputStream {
                 }
             }
             if (c == '\r') {
-                if (cbuf.hasRemaining() && cbuf.get(cbuf.position()) == '\n') { // Line 123
+                if (cbuf.hasRemaining() && cbuf.get(cbuf.position()) == '\n') {
                     cbuf.get();
                     if (kmp.accept('\n')) {
-                        fireOnce();
+                        onMatched();
                     }
                 } else {
                     pendingCR = true;
@@ -131,20 +137,35 @@ public final class CheckingConsoleOutputStream extends OutputStream {
                 continue;
             }
             if (kmp.accept(c)) {
-                fireOnce();
+                onMatched();
             }
         }
         cbuf.clear();
     }
 
-
-    private void fireOnce() {
-        if (seen.compareAndSet(false, true) && onSeen != null) {
-            onSeen.run();
+    private void onMatched() {
+        if (onMatchNext == null) {
+            done.set(true);
+            return;
+        }
+        String next = onMatchNext.apply(literal);
+        if (next == null) {
+            done.set(true);
+            return;
+        }
+        String nextNorm = normalizeNl(next);
+        if (!Objects.equals(nextNorm, this.literal)) {
+            this.literal = nextNorm;
+            this.kmp = new Kmp(this.literal);
+        } else {
+            this.kmp.reset();
         }
     }
 
-    /** Minimal KMP for streaming literal match. */
+    private static String normalizeNl(String s) {
+        return s.replace("\r\n", "\n").replace("\r", "\n");
+    }
+
     private static final class Kmp {
         private final char[] p;
         private final int[] lps;
@@ -155,13 +176,20 @@ public final class CheckingConsoleOutputStream extends OutputStream {
             this.lps = buildLps(p);
         }
 
-        /** Feed one char; returns true if full pattern just matched. */
         boolean accept(char c) {
             while (j > 0 && c != p[j]) {
                 j = lps[j - 1];
             }
-            return c == p[j] && ++j == p.length;
+            if (c == p[j]) {
+                if (++j == p.length) {
+                    j = lps[j - 1];
+                    return true;
+                }
+            }
+            return false;
         }
+
+        void reset() { j = 0; }
 
         private static int[] buildLps(char[] p) {
             int[] lps = new int[p.length];
@@ -172,12 +200,11 @@ public final class CheckingConsoleOutputStream extends OutputStream {
                 }
                 if (p[i] == p[len]) {
                     len++;
-                    lps[i] = len;
-                } else {
-                    lps[i] = 0;
                 }
+                lps[i] = len;
             }
             return lps;
         }
+
     }
 }
