@@ -3,11 +3,7 @@ ch.vorburger.exec [![Maven Central](https://maven-badges.herokuapp.com/maven-cen
 =================
 
 This is a small library allowing to launch external processes from Java code in the background,
-and conveniently correctly pipe their output e.g. into slf4j, await either their termination or specific output, etc.
-
-_If you like/use this project, [Sponsoring me](https://github.com/sponsors/vorburger) or a Star / Watch / Follow me on GitHub is very much appreciated!_
-
-[Release Notes are in CHANGES.md](CHANGES.md).
+and conveniently correctly pipe their output e.g. into SLF4J, await either their termination or specific output, etc.
 
 Usage
 ---

@@ -6,3 +6,7 @@ target/
 .project
 .classpath
 .mvn/wrapper/maven-wrapper.jar
+.PVS-Studio
+.gradle
+build
+.kotlin
