@@ -19,19 +19,28 @@
  */
 package ch.vorburger.exec;
 
-import org.apache.commons.exec.ShutdownHookProcessDestroyer;
-import org.slf4j.Logger;
+import org.apache.commons.exec.PumpStreamHandler;
+import org.jspecify.annotations.Nullable;
 
-import static org.slf4j.LoggerFactory.getLogger;
+import java.io.InputStream;
+import java.io.OutputStream;
+import java.util.concurrent.CountDownLatch;
 
-public class LoggingShutdownHookProcessDestroyer extends ShutdownHookProcessDestroyer {
-    private static final Logger LOG = getLogger(LoggingShutdownHookProcessDestroyer.class);
+class StartSignalingPumpStreamHandler extends PumpStreamHandler {
+    private final CountDownLatch started;
+
+    StartSignalingPumpStreamHandler(
+            OutputStream outputStream,
+            OutputStream errorOutputStream,
+            @Nullable InputStream inputStream,
+            CountDownLatch started) {
+        super(outputStream, errorOutputStream, inputStream);
+        this.started = started;
+    }
 
     @Override
-    public void run() {
-        LOG.info(
-                "Shutdown Hook: JVM is about to exit! Going to kill destroyOnShutdown"
-                        + " processes...");
-        super.run();
+    public void start() {
+        super.start();
+        started.countDown();
     }
 }

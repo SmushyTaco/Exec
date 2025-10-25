@@ -26,7 +26,10 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.nio.ByteBuffer;
 import java.nio.CharBuffer;
-import java.nio.charset.*;
+import java.nio.charset.Charset;
+import java.nio.charset.CharsetDecoder;
+import java.nio.charset.CoderResult;
+import java.nio.charset.CodingErrorAction;
 import java.util.Objects;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
@@ -47,27 +50,34 @@ public final class CheckingConsoleOutputStream extends OutputStream {
     private Kmp kmp;
 
     private final CharBuffer cbuf = CharBuffer.allocate(4096);
+
     @SuppressWarnings("IdentifierName")
     private boolean pendingCR = false;
 
-    public CheckingConsoleOutputStream(String literal, @Nullable Function<String, @Nullable String> onMatchNext,
-        @Nullable Charset cs) {
+    public CheckingConsoleOutputStream(
+            String literal,
+            @Nullable Function<String, @Nullable String> onMatchNext,
+            @Nullable Charset cs) {
         if (literal.isEmpty()) {
             throw new IllegalArgumentException("literal must not be empty");
         }
         this.literal = normalizeNl(literal);
         this.onMatchNext = onMatchNext;
-        this.dec = (cs == null ? Charset.defaultCharset() : cs).newDecoder()
-                .onMalformedInput(CodingErrorAction.REPLACE)
-                .onUnmappableCharacter(CodingErrorAction.REPLACE);
+        this.dec =
+                (cs == null ? Charset.defaultCharset() : cs)
+                        .newDecoder()
+                        .onMalformedInput(CodingErrorAction.REPLACE)
+                        .onUnmappableCharacter(CodingErrorAction.REPLACE);
         this.kmp = new Kmp(this.literal);
     }
 
-    public boolean hasSeen() { return done.get(); }
+    public boolean hasSeen() {
+        return done.get();
+    }
 
     @Override
     public synchronized void write(int b) throws IOException {
-        write(new byte[]{(byte) b}, 0, 1);
+        write(new byte[] {(byte) b}, 0, 1);
     }
 
     @Override
@@ -189,7 +199,9 @@ public final class CheckingConsoleOutputStream extends OutputStream {
             return false;
         }
 
-        void reset() { j = 0; }
+        void reset() {
+            j = 0;
+        }
 
         private static int[] buildLps(char[] p) {
             int[] lps = new int[p.length];
@@ -205,6 +217,5 @@ public final class CheckingConsoleOutputStream extends OutputStream {
             }
             return lps;
         }
-
     }
 }

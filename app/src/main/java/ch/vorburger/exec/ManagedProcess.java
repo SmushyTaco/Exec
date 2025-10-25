@@ -19,11 +19,7 @@
  */
 package ch.vorburger.exec;
 
-import static ch.vorburger.exec.OutputStreamType.STDERR;
-import static ch.vorburger.exec.OutputStreamType.STDOUT;
-
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
-
 import org.apache.commons.exec.*;
 import org.apache.commons.exec.Executor;
 import org.apache.commons.io.IOUtils;
@@ -40,6 +36,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.*;
 import java.util.function.IntPredicate;
+
+import static ch.vorburger.exec.OutputStreamType.STDERR;
+import static ch.vorburger.exec.OutputStreamType.STDOUT;
 
 /**
  * Managed OS Process (Executable, Program, Command). Created by {@link
@@ -78,9 +77,11 @@ public class ManagedProcess implements ManagedProcessState {
     private final boolean destroyOnShutdown;
     private final int consoleBufferMaxLines;
     private final OutputStreamLogDispatcher outputStreamLogDispatcher;
+    private final @Nullable ManagedProcessListener listener;
     private final MultiOutputStream stdout;
     private final MultiOutputStream stderr;
 
+    private final CountDownLatch streamsStarted = new CountDownLatch(1);
     private volatile boolean started = false;
     private @Nullable String procShortName;
     private @Nullable RollingLogOutputStream console;
@@ -126,27 +127,7 @@ public class ManagedProcess implements ManagedProcessState {
         this.consoleBufferMaxLines = consoleBufferMaxLines;
         this.outputStreamLogDispatcher = outputStreamLogDispatcher;
         this.asyncResult = new CompletableFuture<>();
-        this.asyncResult.handle(
-                (result, e) -> {
-                    if (e == null) {
-                        logger.info(
-                                "{} just exited, with value {}", this.getProcLongName(), result);
-                        if (listener != null) {
-                            listener.onProcessComplete(result);
-                        }
-                    } else {
-                        logger.error("{} failed unexpectedly", this.getProcLongName(), e);
-                        if (e instanceof ExecuteException ee) {
-                            if (listener != null) {
-                                listener.onProcessFailed(ee.getExitValue(), ee);
-                            }
-                        } // TODO handle non-ExecuteException cases gracefully
-                    }
-                    if (e != null && !(e instanceof CancellationException)) {
-                        this.notifyProcessHalted();
-                    }
-                    return null;
-                });
+        this.listener = listener;
         asyncResult.whenComplete((v, e) -> started = false);
         this.stdout = new MultiOutputStream();
         this.stderr = new MultiOutputStream();
@@ -188,7 +169,8 @@ public class ManagedProcess implements ManagedProcessState {
             logger.info("Starting {}", getProcLongName());
         }
 
-        PumpStreamHandler outputHandler = new PumpStreamHandler(stdout, stderr, input);
+        PumpStreamHandler outputHandler =
+                new StartSignalingPumpStreamHandler(stdout, stderr, input, streamsStarted);
         executor.setStreamHandler(outputHandler);
 
         String pid = getProcShortName();
@@ -218,31 +200,27 @@ public class ManagedProcess implements ManagedProcessState {
             executor.execute(
                     commandLine,
                     environment,
-                    new CompletableFutureExecuteResultHandler(asyncResult));
+                    new CompletableFutureExecuteResultHandler(asyncResult, listener, this));
             started = true;
         } catch (IOException e) {
             throw new ManagedProcessException("Launch failed: " + commandLine, e);
         }
-
-        // We now must give the system a say 100ms chance to run the background
-        // thread now, otherwise the asyncResult in checkResult() won't work.
-        //
-        // This is admittedly not ideal, but to do better would require significant
-        // changes to DefaultExecutor, so that its execute() would "fail fast" and
-        // throw an Exception immediately if process start-up fails by doing the
-        // launch in the current thread, and then spawns a separate thread only
-        // for the waitFor().
-        //
-        // As DefaultExecutor doesn't seem to have been written with extensibility
-        // in mind, and rewriting it to start gain 100ms (at the start of every process...)
-        // doesn't seem to be worth it for now, I'll leave it like this, for now.
-        //
         try {
-            this.wait(100); // better than Thread.sleep(100); -- thank you, FindBugs
-        } catch (InterruptedException e) {
-            throw handleInterruptedException("startExecute", e);
+            boolean startedNow = streamsStarted.await(2, TimeUnit.SECONDS);
+            if (!startedNow) {
+                logger.warn(
+                        "Process streams did not start within the expected window: {}",
+                        getProcLongName());
+            }
+            if (asyncResult.isCompletedExceptionally()) {
+                asyncResult.get();
+            }
+        } catch (InterruptedException ie) {
+            throw handleInterruptedException("startExecute", ie);
+        } catch (ExecutionException ee) {
+            throw new ManagedProcessException(
+                    getProcLongName() + " failed during startup: " + getLastConsoleLines(), ee);
         }
-        checkResult();
     }
 
     /**
@@ -270,10 +248,13 @@ public class ManagedProcess implements ManagedProcessState {
         CompletableFuture<Boolean> seen = new CompletableFuture<>();
 
         try (CheckingConsoleOutputStream checkingConsoleOutputStream =
-                new CheckingConsoleOutputStream(messageInConsole, ignored -> {
-                    seen.complete(true);
-                    return null;
-                }, null)) {
+                new CheckingConsoleOutputStream(
+                        messageInConsole,
+                        ignored -> {
+                            seen.complete(true);
+                            return null;
+                        },
+                        null)) {
             stdout.addOutputStream(checkingConsoleOutputStream);
             stderr.addOutputStream(checkingConsoleOutputStream);
 
@@ -327,22 +308,6 @@ public class ManagedProcess implements ManagedProcessState {
         return ManagedProcessInterruptedException.withCause(where, getProcLongName(), e);
     }
 
-    // TODO we could add this as a closure on the CompletableFuture instead of checking
-    protected void checkResult()
-            throws ManagedProcessException, ManagedProcessInterruptedException {
-        if (asyncResult.isCompletedExceptionally()) {
-            // We already terminated (or never started)
-            try {
-                asyncResult.get(); // just called to throw the exception
-            } catch (InterruptedException e) {
-                throw handleInterruptedException("checkResult", e);
-            } catch (ExecutionException e) {
-                throw new ManagedProcessException(
-                        getProcLongName() + " failed with Exception: " + getLastConsoleLines(), e);
-            }
-        }
-    }
-
     /**
      * Kills the Process. If you expect that the process may not be running anymore, use if ( {@link
      * #isAlive()}) around this. If you expect that the process should still be running at this
@@ -373,7 +338,7 @@ public class ManagedProcess implements ManagedProcessState {
             asyncResult.get();
         } catch (InterruptedException e) {
             throw handleInterruptedException("destroy", e);
-        } catch (ExecutionException e) {
+        } catch (ExecutionException ee) {
             // process failed, likely because it was destroyed
         }
 

@@ -19,8 +19,6 @@
  */
 package ch.vorburger.exec;
 
-import static org.junit.jupiter.api.Assertions.*;
-
 import org.apache.commons.lang3.SystemUtils;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.Disabled;
@@ -28,6 +26,8 @@ import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
 import java.util.Objects;
+
+import static org.junit.jupiter.api.Assertions.*;
 
 /**
  * Tests ManagedProcess.
@@ -42,6 +42,7 @@ class ManagedProcessTest {
         TestListener listener = new TestListener();
         SomeSelfTerminatingExec exec = someSelfTerminatingExec(listener);
         exec.proc.startAndWaitForConsoleMessageMaxMs(exec.msgToWaitFor, 1000);
+        exec.proc.waitForExit();
         assertNotEquals(Integer.MIN_VALUE, listener.expectedExitValue);
         assertEquals(Integer.MIN_VALUE, listener.failureExitValue);
         assertNull(listener.t);
@@ -53,7 +54,10 @@ class ManagedProcessTest {
         SomeSelfTerminatingExec exec = someSelfTerminatingFailingExec(listener, false);
         assertThrows(
                 ManagedProcessException.class,
-                () -> exec.proc.startAndWaitForConsoleMessageMaxMs(exec.msgToWaitFor, 1000));
+                () -> {
+                    exec.proc.startAndWaitForConsoleMessageMaxMs(exec.msgToWaitFor, 1000);
+                    exec.proc.waitForExit();
+                });
         assertEquals(Integer.MIN_VALUE, listener.expectedExitValue);
         assertNotEquals(Integer.MIN_VALUE, listener.failureExitValue);
         assertNotNull(listener.t);
@@ -65,6 +69,7 @@ class ManagedProcessTest {
         TestListener listener = new TestListener();
         SomeSelfTerminatingExec exec = someSelfTerminatingFailingExec(listener, true);
         exec.proc.startAndWaitForConsoleMessageMaxMs(exec.msgToWaitFor, 1000);
+        exec.proc.waitForExit();
         if (SystemUtils.IS_OS_MAC || SystemUtils.IS_OS_WINDOWS) {
             assertEquals(1, listener.expectedExitValue);
         } else { // assumes linux
@@ -128,8 +133,6 @@ class ManagedProcessTest {
 
         assertFalse(p.isAlive());
         p.startAndWaitForConsoleMessageMaxMs(exec.msgToWaitFor, 1000);
-        // NB: We can't assertThat(p.isAlive()).isTrue(); - if p finishes too fast, that fails!
-
         p.waitForExit();
         p.exitValue(); // just making sure it works, don't check, as Win/NIX diff.
         assertFalse(p.isAlive());
@@ -140,8 +143,6 @@ class ManagedProcessTest {
         String recentConsoleOutput = p.getConsole();
         assertTrue(recentConsoleOutput.length() > 10);
         assertTrue(recentConsoleOutput.contains("\n"));
-        // System.out.println("Recent (default) 50 lines of console output:");
-        // System.out.println(recentConsoleOutput);
     }
 
     static class SomeSelfTerminatingExec {
@@ -203,9 +204,9 @@ class ManagedProcessTest {
             builder =
                     new ManagedProcessBuilder("cmd.exe")
                             .addArgument("/C")
-                            .addArgument("dir")
+                            .addArgument("dirr")
                             .addArgument("/?");
-            r.msgToWaitFor = "Displays a list of files and subdirectories in a directory.";
+            r.msgToWaitFor = "is not recognized as an internal or external command";
         } else {
             throw new ManagedProcessException("Unexpected Platform, improve the test dude...");
         }

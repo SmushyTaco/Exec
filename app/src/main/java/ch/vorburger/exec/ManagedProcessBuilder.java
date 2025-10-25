@@ -21,7 +21,6 @@ package ch.vorburger.exec;
 
 import com.google.errorprone.annotations.CanIgnoreReturnValue;
 import com.google.errorprone.annotations.Var;
-
 import org.apache.commons.exec.CommandLine;
 import org.apache.commons.exec.environment.EnvironmentUtils;
 import org.apache.commons.exec.util.StringUtils;
@@ -112,8 +111,8 @@ public class ManagedProcessBuilder {
      *
      * @param arg the Path to add
      * @return this
-     * @throws IOException if {@link Path#toRealPath(LinkOption...)} and the {@link File#getCanonicalPath()}
-     *     fallback both fail.
+     * @throws IOException if {@link Path#toRealPath(LinkOption...)} and the {@link
+     *     File#getCanonicalPath()} fallback both fail.
      * @see ProcessBuilder
      */
     @CanIgnoreReturnValue
@@ -199,7 +198,8 @@ public class ManagedProcessBuilder {
      * a file path. The prefix and file path are independently escaped (see above), and then
      * concatenated.
      *
-     * @throws IOException if {@link Path#toRealPath(LinkOption...)} and the {@link File#getCanonicalPath()}
+     * @throws IOException if {@link Path#toRealPath(LinkOption...)} and the {@link
+     *     File#getCanonicalPath()}
      */
     @SuppressWarnings("unused")
     @CanIgnoreReturnValue

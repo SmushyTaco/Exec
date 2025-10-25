@@ -21,6 +21,7 @@ package ch.vorburger.exec;
 
 import org.apache.commons.exec.ExecuteException;
 import org.apache.commons.exec.ExecuteResultHandler;
+import org.jspecify.annotations.Nullable;
 
 import java.util.concurrent.CompletableFuture;
 
@@ -28,9 +29,14 @@ import java.util.concurrent.CompletableFuture;
 class CompletableFutureExecuteResultHandler implements ExecuteResultHandler {
 
     private final CompletableFuture<Integer> asyncResult;
+    private final @Nullable ManagedProcessListener listener;
+    private final ManagedProcess owner;
 
-    public CompletableFutureExecuteResultHandler(CompletableFuture<Integer> asyncResult) {
+    public CompletableFutureExecuteResultHandler(CompletableFuture<Integer> asyncResult,
+        @Nullable ManagedProcessListener listener, ManagedProcess owner) {
         this.asyncResult = asyncResult;
+        this.listener = listener;
+        this.owner = owner;
     }
 
     /**
@@ -40,6 +46,9 @@ class CompletableFutureExecuteResultHandler implements ExecuteResultHandler {
      */
     @Override
     public void onProcessComplete(int exitValue) {
+        if (listener != null) {
+            listener.onProcessComplete(exitValue);
+        }
         asyncResult.complete(exitValue);
     }
 
@@ -50,6 +59,10 @@ class CompletableFutureExecuteResultHandler implements ExecuteResultHandler {
      */
     @Override
     public void onProcessFailed(ExecuteException e) {
+        if (listener != null) {
+            listener.onProcessFailed(e.getExitValue(), e);
+        }
         asyncResult.completeExceptionally(e);
+        owner.notifyProcessHalted();
     }
 }
