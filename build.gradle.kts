@@ -2,6 +2,7 @@ plugins {
     `java-library`
     id("com.gradleup.shadow")
     id("org.jetbrains.dokka")
+    id("dev.yumi.gradle.licenser")
 }
 val name = providers.gradleProperty("name")
 val projectGroup = providers.gradleProperty("group")
@@ -74,4 +75,10 @@ tasks {
         dependsOn(named("dokkaGenerateHtml"))
         from(layout.buildDirectory.dir("dokka/html"))
     }
+}
+license {
+    rule(file("./HEADER"))
+    include("**/*.java")
+    include("**/*.kt")
+    exclude("**/*.properties")
 }

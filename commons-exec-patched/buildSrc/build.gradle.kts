@@ -1,6 +1,9 @@
 import org.jetbrains.kotlin.gradle.dsl.JvmTarget
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
-plugins { `kotlin-dsl` }
+plugins {
+    `kotlin-dsl`
+    id("dev.yumi.gradle.licenser")
+}
 val name = providers.gradleProperty("name")
 val projectGroup = providers.gradleProperty("group")
 val projectVersion = providers.gradleProperty("version")
@@ -37,4 +40,10 @@ tasks {
         targetCompatibility = JavaVersion.toVersion(javaVersion.get().toInt())
         withSourcesJar()
     }
+}
+license {
+    rule(file("../../HEADER"))
+    include("**/*.java")
+    include("**/*.kt")
+    exclude("**/*.properties")
 }

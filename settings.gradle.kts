@@ -7,16 +7,20 @@ pluginManagement {
     }
     val shadowVersion = providers.gradleProperty("shadow_version")
     val dokkaVersion = providers.gradleProperty("dokka_version")
+    val yumiGradleLicenserVersion = providers.gradleProperty("yumi_gradle_licenser_version")
     plugins {
         id("com.gradleup.shadow").version(shadowVersion.get())
         id("org.jetbrains.dokka").version(dokkaVersion.get())
+        id("dev.yumi.gradle.licenser").version(yumiGradleLicenserVersion.get())
     }
 }
-providers.exec {
-    val gradlew = if (System.getProperty("os.name").lowercase().contains("win"))
-        file("${rootDir}${File.separatorChar}gradlew.bat").absolutePath
-    else
-        file("${rootDir}${File.separatorChar}gradlew").absolutePath
-    commandLine(gradlew, "publishPatchedPublicationToLocalPatchedRepository")
-    workingDir(file("$rootDir${File.separatorChar}commons-exec-patched"))
-}.result.get().also { it.rethrowFailure().assertNormalExitValue() }
+if (!file("./commons-exec-patched/build/local-m2").exists()) {
+    providers.exec {
+        val gradlew = if (System.getProperty("os.name").lowercase().contains("win"))
+            file("${rootDir}/gradlew.bat").absolutePath
+        else
+            file("${rootDir}/gradlew").absolutePath
+        commandLine(gradlew, "publishPatchedPublicationToLocalPatchedRepository")
+        workingDir(file("$rootDir/commons-exec-patched"))
+    }.result.get().also { it.rethrowFailure().assertNormalExitValue() }
+}
