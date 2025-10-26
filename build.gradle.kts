@@ -1,4 +1,8 @@
-plugins { `java-library` }
+plugins {
+    `java-library`
+    id("com.gradleup.shadow")
+    id("org.jetbrains.dokka")
+}
 val name = providers.gradleProperty("name")
 val projectGroup = providers.gradleProperty("group")
 val projectVersion = providers.gradleProperty("version")
@@ -10,6 +14,7 @@ val commonsLang3Version = providers.gradleProperty("commons_lang3_version")
 val junitJupiterVersion = providers.gradleProperty("junit_jupiter_version")
 val assertjCoreVersion = providers.gradleProperty("assertj_core_version")
 val javaVersion = providers.gradleProperty("java_version")
+val dokkaVersion = providers.gradleProperty("dokka_version")
 description = "Java library to launch external processes"
 base.archivesName = name.get()
 group = projectGroup.get()
@@ -22,10 +27,15 @@ repositories {
     }
 }
 dependencies {
-    implementation("org.apache.commons:commons-exec:${commonsExecVersion.get()}-patched")
+    dokkaPlugin("org.jetbrains.dokka:kotlin-as-java-plugin:${dokkaVersion.get()}")
+
     implementation("commons-io:commons-io:${commonsIoVersion.get()}")
     implementation("org.jspecify:jspecify:${jspecifyVersion.get()}")
     implementation("org.slf4j:slf4j-api:${slf4jVersion.get()}")
+
+    compileOnly("org.apache.commons:commons-exec:${commonsExecVersion.get()}-patched")
+    shadow("org.apache.commons:commons-exec:${commonsExecVersion.get()}-patched")
+    testImplementation("org.apache.commons:commons-exec:${commonsExecVersion.get()}-patched")
 
     testImplementation("org.apache.commons:commons-lang3:${commonsLang3Version.get()}")
     testImplementation("org.junit.jupiter:junit-jupiter:${junitJupiterVersion.get()}")
@@ -38,6 +48,8 @@ tasks {
         toolchain.languageVersion = JavaLanguageVersion.of(javaVersion.get())
         sourceCompatibility = JavaVersion.toVersion(javaVersion.get().toInt())
         targetCompatibility = JavaVersion.toVersion(javaVersion.get().toInt())
+        withSourcesJar()
+        withJavadocJar()
     }
     withType<JavaCompile>().configureEach {
         options.encoding = "UTF-8"
@@ -50,5 +62,16 @@ tasks {
     withType<Test>().configureEach {
         defaultCharacterEncoding = "UTF-8"
         useJUnitPlatform()
+    }
+    shadowJar {
+        archiveClassifier = ""
+        configurations = listOf(project.configurations.shadow.get())
+        relocate("org.apache.commons.exec", "${project.group.toString().lowercase()}.${base.archivesName.get().lowercase().replace('-', '_')}.shaded.org.apache.commons.exec")
+    }
+    named("build") { dependsOn(shadowJar) }
+    named<Javadoc>("javadoc") { enabled = false }
+    named<Jar>("javadocJar") {
+        dependsOn(named("dokkaGenerateHtml"))
+        from(layout.buildDirectory.dir("dokka/html"))
     }
 }

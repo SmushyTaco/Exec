@@ -19,6 +19,15 @@ import org.slf4j.event.Level;
  * @author Michael Vorburger
  */
 public class OutputStreamLogDispatcher {
+    /**
+     * Creates a new {@code OutputStreamLogDispatcher} with default behavior.
+     *
+     * <p>By default, this dispatcher sends {@link OutputStreamType#STDOUT STDOUT} lines
+     * to {@link org.slf4j.event.Level#INFO INFO} and {@link OutputStreamType#STDERR STDERR} lines
+     * to {@link org.slf4j.event.Level#ERROR ERROR}.
+     * <p>Subclasses may override {@link #dispatch(OutputStreamType, String)} to customize this logic.
+     */
+    public OutputStreamLogDispatcher() {}
 
     /**
      * Determines the logging level for a given line of output from a managed process.

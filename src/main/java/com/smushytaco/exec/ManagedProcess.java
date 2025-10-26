@@ -10,7 +10,6 @@ import org.slf4j.LoggerFactory;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
-import java.lang.invoke.MethodHandles;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.Map;
@@ -39,10 +38,21 @@ import static com.smushytaco.exec.OutputStreamType.STDOUT;
  */
 public class ManagedProcess implements ManagedProcessState {
 
-    private static final Logger logger =
-            LoggerFactory.getLogger(MethodHandles.lookup().lookupClass());
+    private static final Logger logger = LoggerFactory.getLogger(ManagedProcess.class);
 
+    /**
+     * Synthetic exit code returned when this process was explicitly destroyed
+     * via {@link #destroy()} rather than terminating normally.
+     *
+     * <p>Always a negative value distinct from {@link Executor#INVALID_EXITVALUE}.
+     */
     public static final int EXIT_VALUE_DESTROYED = Executor.INVALID_EXITVALUE - 1;
+    /**
+     * Synthetic exit code used to indicate that the process was still running
+     * when a bounded wait timed out (see {@link #waitForExitMaxMs(long)}).
+     *
+     * <p>Always a negative value distinct from {@link Executor#INVALID_EXITVALUE}.
+     */
     public static final int EXIT_VALUE_STILL_RUNNING = Executor.INVALID_EXITVALUE - 2;
 
     private final CommandLine commandLine;
@@ -127,8 +137,9 @@ public class ManagedProcess implements ManagedProcessState {
      * different waitFor... methods if you want to "block" on the spawned process.
      *
      * @throws ManagedProcessException if the process could not be started
-     * @throws ManagedProcessInterruptedException if the thread was interrupted while waiting
-     *     (unexpected in normal operation).
+     * @throws ManagedProcessInterruptedException if interrupted while waiting
+     *
+     * @return The current instance.
      */
     public synchronized ManagedProcess start()
             throws ManagedProcessException, ManagedProcessInterruptedException {
@@ -137,6 +148,15 @@ public class ManagedProcess implements ManagedProcessState {
         return this;
     }
 
+    /**
+     * Prepares the executor and stream handlers prior to process launch.
+     *
+     * <p>Configures redirection of stdout/stderr, optional rolling console buffer,
+     * and (optionally) a shutdown-hook {@link ProcessDestroyer}. Also validates
+     * that another process instance is not already running.
+     *
+     * @throws ManagedProcessException if a process is already alive for this instance
+     */
     protected synchronized void startPreparation() throws ManagedProcessException {
         if (isAlive()) {
             throw new ManagedProcessException(
@@ -169,10 +189,23 @@ public class ManagedProcess implements ManagedProcessState {
         }
     }
 
+    /**
+     * Returns the path of the executable that will be launched.
+     *
+     * @return the executable path as a {@link Path}
+     */
     public Path getExecutablePath() {
         return Path.of(commandLine.getExecutable());
     }
 
+    /**
+     * Launches the configured process asynchronously and wires completion into
+     * {@code asyncResult}. Also waits briefly for stream startup and propagates
+     * early failures.
+     *
+     * @throws ManagedProcessException if launching the process fails
+     * @throws ManagedProcessInterruptedException if the waiting thread is interrupted
+     */
     protected synchronized void startExecute()
             throws ManagedProcessException, ManagedProcessInterruptedException {
         try {
@@ -215,8 +248,7 @@ public class ManagedProcess implements ManagedProcessState {
      * @throws IOException if {@link CheckingConsoleOutputStream} has trouble closing
      * @throws ManagedProcessException for problems such as if the process already exited (without
      *     the message ever appearing in the Console)
-     * @throws ManagedProcessInterruptedException if the thread was interrupted while waiting
-     *     (unexpected in normal operation).
+     * @throws ManagedProcessInterruptedException if interrupted while waiting
      */
     @Override
     public boolean startAndWaitForConsoleMessageMaxMs(
@@ -272,6 +304,13 @@ public class ManagedProcess implements ManagedProcessState {
         }
     }
 
+    /**
+     * Builds a diagnostic message used when the process exits before emitting
+     * an expected console marker.
+     *
+     * @param messageInConsole the marker text that was awaited
+     * @return a human-readable diagnostic including recent console lines
+     */
     protected String getUnexpectedExitMsg(String messageInConsole) {
         return "Asked to wait for \""
                 + messageInConsole
@@ -281,6 +320,14 @@ public class ManagedProcess implements ManagedProcessState {
                 + getLastConsoleLines();
     }
 
+    /**
+     * Normalizes handling of {@link InterruptedException}: re-asserts the interrupt
+     * status and returns a typed {@link ManagedProcessInterruptedException}.
+     *
+     * @param where short context about where the interrupt occurred
+     * @param e the originating {@link InterruptedException}
+     * @return a {@link ManagedProcessInterruptedException} wrapping the cause
+     */
     protected ManagedProcessInterruptedException handleInterruptedException(
             String where, InterruptedException e) {
         Thread.currentThread().interrupt();
@@ -294,8 +341,7 @@ public class ManagedProcess implements ManagedProcessState {
      *
      * @throws ManagedProcessException if the Process is already stopped (either because destroy()
      *     already explicitly called, or it terminated by itself, or it was never started)
-     * @throws ManagedProcessInterruptedException if the thread was interrupted while waiting
-     *     (unexpected in normal operation).
+     * @throws ManagedProcessInterruptedException if interrupted while waiting
      */
     @Override
     public void destroy() throws ManagedProcessException, ManagedProcessInterruptedException {
@@ -357,8 +403,7 @@ public class ManagedProcess implements ManagedProcessState {
      *     convention, the value <code>0</code> indicates normal termination.
      * @throws ManagedProcessException if the subprocess represented by this {@link ManagedProcess}
      *     object has not yet terminated, or has terminated without an exit value.
-     * @throws ManagedProcessInterruptedException if the thread was interrupted while waiting
-     *     (unexpected in normal operation).
+     * @throws ManagedProcessInterruptedException if interrupted while waiting
      */
     @Override
     public int exitValue() throws ManagedProcessException, ManagedProcessInterruptedException {
@@ -382,8 +427,7 @@ public class ManagedProcess implements ManagedProcessState {
      * @throws ManagedProcessException if {@link #start()} was never even called or the process was
      *     attempted to be started but that start failed (unknown executable, underlying OS error,
      *     etc.)
-     * @throws ManagedProcessInterruptedException if the thread was interrupted while waiting
-     *     (unexpected in normal operation).
+     * @throws ManagedProcessInterruptedException if interrupted while waiting
      */
     @Override
     public int waitForExit() throws ManagedProcessException, ManagedProcessInterruptedException {
@@ -401,8 +445,7 @@ public class ManagedProcess implements ManagedProcessState {
      * @return exit value, or {@link #EXIT_VALUE_STILL_RUNNING} if the timeout was reached, or
      *     {@link #EXIT_VALUE_DESTROYED} if {@link #destroy()} was used
      * @throws ManagedProcessException see above
-     * @throws ManagedProcessInterruptedException if the thread was interrupted while waiting
-     *     (unexpected in normal operation).
+     * @throws ManagedProcessInterruptedException if interrupted while waiting
      */
     @Override
     public int waitForExitMaxMs(long maxWaitUntilReturning)
@@ -414,6 +457,17 @@ public class ManagedProcess implements ManagedProcessState {
         return waitForExitMaxMsWithoutLog(maxWaitUntilReturning);
     }
 
+    /**
+     * Core waiting logic used by {@link #waitForExit()} and
+     * {@link #waitForExitMaxMs(long)} without emitting log messages.
+     *
+     * @param maxWaitUntilReturningInMs maximum time to wait in milliseconds,
+     *                                  or {@code -1} to wait indefinitely
+     * @return the exit code, {@link #EXIT_VALUE_STILL_RUNNING} on timeout while still alive,
+     *         or {@link #EXIT_VALUE_DESTROYED} if the process was destroyed
+     * @throws ManagedProcessException if waiting is invalid (e.g., never started) or fails
+     * @throws ManagedProcessInterruptedException if interrupted while waiting
+     */
     protected int waitForExitMaxMsWithoutLog(long maxWaitUntilReturningInMs)
             throws ManagedProcessException, ManagedProcessInterruptedException {
         assertWaitForIsValid();
@@ -458,6 +512,13 @@ public class ManagedProcess implements ManagedProcessState {
         return this;
     }
 
+    /**
+     * Verifies that a wait operation is valid for the current lifecycle state.
+     *
+     * <p>Throws if a wait is requested even though the process was never started.
+     *
+     * @throws ManagedProcessException if waiting is invalid for the current state
+     */
     protected void assertWaitForIsValid() throws ManagedProcessException {
         if (!watchDog.isStopped() && !isAlive() && !asyncResult.isDone()) {
             throw new ManagedProcessException(

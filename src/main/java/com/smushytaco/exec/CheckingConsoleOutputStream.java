@@ -15,11 +15,11 @@ import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Function;
 
 /**
- * OutputStream which watches out for the occurrence of a keyword (String).
+ * OutputStream which watches out for the occurrence of keywords ({@linkplain String}s).
  *
- * <p>Used to watch the console output of a {@link ManagedProcess} for a matching String.
+ * <p>Used to watch the console output of a {@linkplain ManagedProcess} for a matching {@linkplain String}.
  *
- * @author Michael Vorburger
+ * @author Nikan Radan
  */
 public final class CheckingConsoleOutputStream extends OutputStream {
     private final CharsetDecoder dec;
@@ -31,27 +31,45 @@ public final class CheckingConsoleOutputStream extends OutputStream {
 
     private final CharBuffer cbuf = CharBuffer.allocate(4096);
 
-    @SuppressWarnings("IdentifierName")
     private boolean pendingCR = false;
 
+    /**
+     * The public constructor.
+     *
+     * @param literal the first literal that's searched for.
+     * @param onMatchNext if this is null it isn't used. If it's not null, whenever the literal is found, this callback
+     *                    is called. If null is returned, it stops searching. If a {@linkplain String} it returned,
+     *                    it continues to search for said returned {@linkplain String}.
+     * @param charset the {@linkplain Charset} that's used.
+     *                If null it defaults to {@linkplain Charset#defaultCharset()}.
+     */
     public CheckingConsoleOutputStream(
             String literal,
             @Nullable Function<String, @Nullable String> onMatchNext,
-            @Nullable Charset cs) {
+            @Nullable Charset charset) {
         if (literal.isEmpty()) {
             throw new IllegalArgumentException("literal must not be empty");
         }
         this.literal = normalizeNl(literal);
         this.onMatchNext = onMatchNext;
         this.dec =
-                (cs == null ? Charset.defaultCharset() : cs)
+                (charset == null ? Charset.defaultCharset() : charset)
                         .newDecoder()
                         .onMalformedInput(CodingErrorAction.REPLACE)
                         .onUnmappableCharacter(CodingErrorAction.REPLACE);
         this.kmp = new Kmp(this.literal);
     }
 
-    public boolean hasSeen() {
+    /**
+     * Returns whether this output stream has finished searching for its target literal.
+     *
+     * <p>This becomes {@code true} once the initial literal has been found with no further searches remaining because
+     * {@code onMatchNext} was set to {@code null} or returned {@code null}.
+     *
+     * @return {@code true} if this stream has completed all searches and will ignore further input;
+     *         {@code false} otherwise.
+     */
+    public boolean isFinished() {
         return done.get();
     }
 
@@ -62,7 +80,7 @@ public final class CheckingConsoleOutputStream extends OutputStream {
 
     @Override
     public synchronized void write(byte[] b, int off, int len) throws IOException {
-        if (hasSeen()) {
+        if (isFinished()) {
             return;
         }
         if (off < 0 || len < 0 || off + len > b.length) {
@@ -76,7 +94,7 @@ public final class CheckingConsoleOutputStream extends OutputStream {
                 cr.throwException();
             }
             drainBuffer();
-            if (hasSeen()) {
+            if (isFinished()) {
                 return;
             }
         }
@@ -84,7 +102,7 @@ public final class CheckingConsoleOutputStream extends OutputStream {
 
     @Override
     public synchronized void close() throws IOException {
-        if (hasSeen()) {
+        if (isFinished()) {
             return;
         }
         CoderResult cr = dec.decode(ByteBuffer.allocate(0), cbuf, true);
@@ -97,14 +115,14 @@ public final class CheckingConsoleOutputStream extends OutputStream {
             cr.throwException();
         }
         drainBuffer();
-        if (pendingCR && !hasSeen() && kmp.accept('\n')) {
+        if (pendingCR && !isFinished() && kmp.accept('\n')) {
             onMatched();
         }
     }
 
     private void drainBuffer() {
         cbuf.flip();
-        while (!hasSeen() && cbuf.hasRemaining()) {
+        while (!isFinished() && cbuf.hasRemaining()) {
             char c = cbuf.get();
             if (pendingCR) {
                 if (kmp.accept('\n')) {

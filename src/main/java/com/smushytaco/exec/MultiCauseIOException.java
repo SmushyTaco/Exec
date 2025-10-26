@@ -8,7 +8,13 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * IOException with multiple causes.
+ * An {@link IOException} that aggregates multiple underlying {@link IOException} causes.
+ *
+ * <p>This class is useful when multiple I/O operations may fail independently,
+ * and you want to capture all of their exceptions together rather than only the first.
+ *
+ * <p>Each cause can be added using {@link #add(String, IOException)}, and later retrieved via
+ * {@link #getCauses()}.
  *
  * @author Michael Vorburger
  */
@@ -16,10 +22,21 @@ public class MultiCauseIOException extends IOException {
 
     @Serial private static final long serialVersionUID = 1L;
 
-    // Code review comments most welcome; I'm not sure if I'm doing this right 100% right?
-    // Doesn't something like this (or helpers for it) exist else? Couldn't find in commons-lang or
-    // Spring...
+    /**
+     * Creates a new, initially empty {@code MultiCauseIOException}.
+     *
+     * <p>Call {@link #add(String, IOException)} at least once to record
+     * individual I/O errors before throwing this exception.
+     */
+    public MultiCauseIOException() {}
 
+    /**
+     * The list of underlying {@link IOException} causes aggregated by this exception.
+     *
+     * <p>Each cause includes its own message and stack trace. This list is populated by calls
+     * to {@link #add(String, IOException)} and may contain multiple entries if several
+     * operations failed during execution.
+     */
     protected final ArrayList<IOException> causes = new ArrayList<>();
 
     /**
@@ -32,14 +49,11 @@ public class MultiCauseIOException extends IOException {
         causes.add(new IOException(message, cause));
     }
 
-    // May be safer not to do this - Exceptions from Exception may be more trouble than useful?
-    // protected void checkUsage() throws IllegalStateException {
-    // if (causes.isEmpty())
-    // throw new
-    // IllegalStateException("Wrong usage of MultiCauseIOException in code; must call add() at least
-    // once before");
-    // }
-
+    /**
+     * Returns the list of all underlying {@link IOException} instances that caused this exception.
+     *
+     * @return a mutable list containing the individual causes in the order they were added
+     */
     @SuppressWarnings("unused")
     public List<IOException> getCauses() {
         return causes;
@@ -77,15 +91,13 @@ public class MultiCauseIOException extends IOException {
         }
     }
 
-    // ---
-
     @Override
     public synchronized Throwable getCause() {
         throw new UnsupportedOperationException();
     }
 
     @Override
-    public synchronized Throwable initCause(@SuppressWarnings("unused") Throwable cause) {
+    public synchronized Throwable initCause(Throwable cause) {
         throw new UnsupportedOperationException();
     }
 
@@ -95,7 +107,7 @@ public class MultiCauseIOException extends IOException {
     }
 
     @Override
-    public void setStackTrace(@SuppressWarnings("unused") StackTraceElement[] stackTrace) {
+    public void setStackTrace(StackTraceElement[] stackTrace) {
         throw new UnsupportedOperationException();
     }
 }

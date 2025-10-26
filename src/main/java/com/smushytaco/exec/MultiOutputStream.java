@@ -1,6 +1,5 @@
 package com.smushytaco.exec;
 
-
 import java.io.IOException;
 import java.io.OutputStream;
 import java.util.ArrayList;
@@ -22,21 +21,54 @@ import java.util.List;
  */
 public class MultiOutputStream extends OutputStream {
 
+    /**
+     * The list of underlying {@link OutputStream} instances that this multiplexer delegates to.
+     *
+     * <p>Each stream receives all write, flush, and close operations in the order they were added.
+     * If any stream throws an {@link IOException}, it is recorded but does not prevent other
+     * streams from being written to.
+     */
     protected final List<OutputStream> streams = new ArrayList<>();
 
+    /**
+     * Creates an empty {@code MultiOutputStream} with no delegate streams.
+     *
+     * <p>Streams can be added later using {@link #addOutputStream(OutputStream)}.
+     */
     public MultiOutputStream() {}
 
+    /**
+     * Creates a {@code MultiOutputStream} that delegates to the given {@link OutputStream}s.
+     *
+     * @param delegates one or more output streams that will receive all written data
+     */
     @SuppressWarnings("unused")
     public MultiOutputStream(OutputStream... delegates) {
         streams.addAll(Arrays.asList(delegates));
     }
 
+    /**
+     * Adds an {@link OutputStream} to this multiplexer.
+     *
+     * <p>All future writes will be forwarded to this stream as well.
+     *
+     * @param delegate the {@link OutputStream} to add
+     * @return this {@code MultiOutputStream} instance for chaining
+     */
     @SuppressWarnings("UnusedReturnValue")
     public synchronized MultiOutputStream addOutputStream(OutputStream delegate) {
         streams.add(delegate);
         return this;
     }
 
+    /**
+     * Removes an {@link OutputStream} from this multiplexer.
+     *
+     * <p>After removal, the stream will no longer receive any writes or flush calls.
+     *
+     * @param delegate the {@link OutputStream} to remove
+     * @return this {@code MultiOutputStream} instance for chaining
+     */
     @SuppressWarnings("UnusedReturnValue")
     public synchronized MultiOutputStream removeOutputStream(OutputStream delegate) {
         streams.remove(delegate);
