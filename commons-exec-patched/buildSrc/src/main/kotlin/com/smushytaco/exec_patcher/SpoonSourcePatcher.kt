@@ -79,7 +79,7 @@ object SpoonSourcePatcher {
     }
     private fun CtClass<Any>.addAsLastMember(ctor: CtConstructor<Any>) {
         addTypeMember<CtType<Any>>(ctor)
-        val members = typeMembers
+        val members = ArrayList(typeMembers)
         members.remove(ctor)
         members.add(ctor)
         @Suppress("UsePropertyAccessSyntax")

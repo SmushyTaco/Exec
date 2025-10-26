@@ -40,7 +40,7 @@ class ManagedProcessBuilderTest {
 
         assertThat(execPath.endsWith(expectedSuffix)).isTrue();
 
-        String arg0 = mbp.getArguments().get(0);
+        String arg0 = mbp.getArguments().getFirst();
         assertNotSame("relative/file", arg0);
         assertTrue(arg0.contains("relative"));
     }

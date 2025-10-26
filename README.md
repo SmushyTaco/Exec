@@ -1,9 +1,7 @@
-ch.vorburger.exec [![Maven Central](https://maven-badges.herokuapp.com/maven-central/ch.vorburger.exec/exec/badge.svg)](https://maven-badges.herokuapp.com/maven-central/ch.vorburger.exec/exec)
-[![Javadocs](http://www.javadoc.io/badge/ch.vorburger.exec/exec.svg)](http://www.javadoc.io/doc/ch.vorburger.exec/exec)
-=================
+# Exec
 
 This is a small library allowing to launch external processes from Java code in the background,
-and conveniently correctly pipe their output e.g. into SLF4J, await either their termination or specific output, etc.
+and correctly pipe their output e.g. into SLF4J, await either their termination or specific output, etc.
 
 Usage
 ---
@@ -15,7 +13,7 @@ This library makes it truly convenient:
 ```java
 ManagedProcessBuilder pb = new ManagedProcessBuilder("someExec")
     .addArgument("arg1")
-    .setWorkingDirectory(new File("/tmp"))
+    .setWorkingDirectory(Path.of("/tmp"))
     .getEnvironment().put("ENV_VAR", "...")
     .setDestroyOnShutdown(true)
     .addStdOut(new BufferedOutputStream(new FileOutputStream(outputFile)))
@@ -52,70 +50,5 @@ History
 ---
 
 Historically, this code was part of [MariaDB4j](https://github.com/vorburger/MariaDB4j/) (and this is why it's initial version was 3.0.0),
-but was it later split into a separate project. This was done to make it usable in separate projects
-(originally [to launch Ansible Networking CLI commands from OpenDaylight](https://github.com/shague/opendaylight-ansible), later [to manage etcd servers in tests](https://github.com/etcd-io/jetcd/issues/361),
-both from [OpenDaylight](http://www.opendaylight.org)); later for use in <https://enola.dev>.
-
-Similar Projects
----
-
-* `dev.enola.common.exec` has the possible NextGen API; watch [#285](https://github.com/vorburger/ch.vorburger.exec/issues/285)
-* [`Pty4j`](https://github.com/JetBrains/pty4j) executes under a [PTY](https://en.m.wikipedia.org/wiki/Pseudoterminal):
-  * use it [with JLine](https://github.com/JetBrains/pty4j/issues/170) to `terminal.enterRawMode()` (if needed)
-  * `jansi` (in [newer] [JLine](https://github.com/jline/jline3/commits/master/jansi-core) and [older] [fusesource](https://github.com/fusesource/jansi)) can filter out ANSI escapes from exec output
-* [`NuProcess`](https://github.com/brettwooldridge/NuProcess) is another similar library in the same space, using native binding.
-* [`jnr-process`](https://github.com/jnr/jnr-process) is yet another such library, also with native binding.
-* [`fleipold/jproc`](https://github.com/fleipold/jproc) is yet another similar library, also native.
-* [`zt-exec`](https://github.com/zeroturnaround/zt-exec) (with [zt-process-killer](https://github.com/zeroturnaround/zt-process-killer)) is also similar ([but refused to backlink us](https://github.com/zeroturnaround/zt-exec/pull/25)).
-* [`os-lib`](https://github.com/com-lihaoyi/os-lib) is a Scala library including functionality like this.
-* [Apache Commons Exec](https://commons.apache.org/proper/commons-exec/): See above.
-
-Related Projects
----
-
-For the _expect-like_ functionality, from https://en.wikipedia.org/wiki/Expect#Java, note (in no particular order):
-
-* https://github.com/vorburger/vexpect
-* http://expectj.sourceforge.net
-* https://github.com/cverges/expect4j
-* https://github.com/Alexey1Gavrilov/ExpectIt
-* https://github.com/iTransformers/expect4java
-* https://github.com/ronniedong/Expect-for-Java
-
-Release
----
-
-First test that GPG is set up correctly (`gpg: no default secret key: No secret key
-gpg: signing failed: No secret key`), and that the `settings.xml` [has the credz](https://github.com/vorburger/ch.vorburger.exec/issues/105)
-for `oss.sonatype.org` (`status: 401 unauthorized`):
-
-    git checkout main
-    ./mvnw verify -Pgpg
-
-    ./mvnw deploy
-
-Once that works, the next release can be done similarly similarly to https://github.com/vorburger/MariaDB4j#release:
-
-    git checkout main
-    ./mvnw release:prepare
-    ./mvnw release:perform -Pgpg
-    ./mvnw release:clean
-    git push
-
-If `./mvnw release:prepare` fails with the following error, then comment out `forceSignAnnotated = true` under `[tag]` in `~/.gitconfig`:
-
-    The git-tag command failed.
-    [ERROR] Command output:
-    [ERROR] error: gpg failed to sign the data
-    [ERROR] error: unable to sign the tag
-
-ToDo
----
-
-This library is currently used to control daemon style external executables.
-To launch a process which returns binary (or massive textual) output to its STDOUT
-(and, presumably, have that piped into a java.io.OutputStream), it would need some tweaks.
-This would include making the enabled-by-default logging into slf4j, and the built-in
-startAndWaitForConsoleMessageMaxMs which collects output, a more configurable option.
-
-Contributions & patches more than welcome!
+but was it later split into a separate project. This was done to make it usable in separate projects. It was then later forked
+and modernized by me (Nikan Radan, also known as SmushyTaco).

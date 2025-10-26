@@ -2,7 +2,6 @@ package com.smushytaco.exec;
 
 import org.apache.commons.lang3.SystemUtils;
 import org.jspecify.annotations.Nullable;
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 
 import java.io.IOException;
@@ -60,11 +59,10 @@ class ManagedProcessTest {
         assertNull(listener.t);
     }
 
-    @SuppressWarnings("SimplifiableAssertion")
     @Test
     void basics() throws ManagedProcessException {
         ManagedProcess p = new ManagedProcessBuilder("someExec").build();
-        assertEquals(false, p.isAlive());
+        assertFalse(p.isAlive());
         assertThrows(ManagedProcessException.class, p::destroy);
         assertThrows(ManagedProcessException.class, p::exitValue);
         // Commented out because this is a flaky not reliable test, because it's thread scheduling
@@ -229,23 +227,6 @@ class ManagedProcessTest {
             return;
         }
         ManagedProcess p = new ManagedProcessBuilder("/usr/bin/whoami").build().start();
-        assertEquals(0, p.waitForExit());
-        assertFalse(p.getConsole().isEmpty());
-    }
-
-    @Test
-    @Disabled(
-            "See https://github.com/vorburger/ch.vorburger.exec/issues/269, and fix this test somehow...")
-    void whoAmI() throws ManagedProcessException, ManagedProcessInterruptedException {
-        if (SystemUtils.IS_OS_WINDOWS) {
-            return;
-        }
-        ManagedProcess p =
-                new ManagedProcessBuilder("/usr/bin/who")
-                        .addArgument("am")
-                        .addArgument("i")
-                        .build()
-                        .start();
         assertEquals(0, p.waitForExit());
         assertFalse(p.getConsole().isEmpty());
     }

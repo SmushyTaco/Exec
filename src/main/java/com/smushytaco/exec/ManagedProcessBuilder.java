@@ -77,6 +77,7 @@ public class ManagedProcessBuilder {
         }
     }
 
+    @SuppressWarnings("UnusedReturnValue")
     public ManagedProcessBuilder addArgument(String arg, boolean handleQuoting) {
         commonsExecCommandLine.addArgument(arg, handleQuoting);
         return this;
@@ -92,6 +93,7 @@ public class ManagedProcessBuilder {
      *     File#getCanonicalPath()} fallback both fail.
      * @see ProcessBuilder
      */
+    @SuppressWarnings("UnusedReturnValue")
     public ManagedProcessBuilder addArgument(Path arg) throws IOException {
         String canonical;
         try {
@@ -196,6 +198,7 @@ public class ManagedProcessBuilder {
      * @return this
      * @see ProcessBuilder#directory(java.io.File)
      */
+    @SuppressWarnings("UnusedReturnValue")
     public ManagedProcessBuilder setWorkingDirectory(@Nullable Path directory) {
         this.directory = directory;
         return this;
@@ -288,6 +291,7 @@ public class ManagedProcessBuilder {
         return this;
     }
 
+    @SuppressWarnings("UnusedReturnValue")
     public ManagedProcessBuilder setIsSuccessExitValueChecker(IntPredicate function) {
         this.isSuccessExitValueChecker = function;
         return this;

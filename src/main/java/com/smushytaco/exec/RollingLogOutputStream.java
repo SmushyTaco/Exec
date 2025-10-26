@@ -7,7 +7,6 @@ import org.apache.commons.exec.LogOutputStream;
  *
  * @author Michael Vorburger
  */
-// intentionally package local for now
 class RollingLogOutputStream extends LogOutputStream {
 
     private final CircularFifoQueue<String> ringBuffer;

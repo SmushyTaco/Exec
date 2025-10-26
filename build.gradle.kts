@@ -14,9 +14,15 @@ description = "Java library to launch external processes"
 base.archivesName = name.get()
 group = projectGroup.get()
 version = projectVersion.get()
-repositories { mavenCentral() }
+repositories {
+    mavenCentral()
+    maven {
+        name = "localPatched"
+        url = uri("$rootDir/commons-exec-patched/build/local-m2")
+    }
+}
 dependencies {
-    implementation("org.apache.commons:commons-exec:${commonsExecVersion.get()}")
+    implementation("org.apache.commons:commons-exec:${commonsExecVersion.get()}-patched")
     implementation("commons-io:commons-io:${commonsIoVersion.get()}")
     implementation("org.jspecify:jspecify:${jspecifyVersion.get()}")
     implementation("org.slf4j:slf4j-api:${slf4jVersion.get()}")
@@ -27,16 +33,6 @@ dependencies {
     testRuntimeOnly("org.slf4j:slf4j-simple:${slf4jVersion.get()}")
     testRuntimeOnly("org.junit.platform:junit-platform-launcher:${junitJupiterVersion.get()}")
 }
-configurations
-    .matching { it.isCanBeResolved }
-    .configureEach {
-        resolutionStrategy.dependencySubstitution {
-            substitute(module("org.apache.commons:commons-exec"))
-                .using(project(":commons-exec-patched"))
-                .because("Use locally patched commons-exec produced by :commons-exec-patched")
-        }
-    }
-
 tasks {
     java {
         toolchain.languageVersion = JavaLanguageVersion.of(javaVersion.get())

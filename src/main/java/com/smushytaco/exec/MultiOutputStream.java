@@ -31,11 +31,13 @@ public class MultiOutputStream extends OutputStream {
         streams.addAll(Arrays.asList(delegates));
     }
 
+    @SuppressWarnings("UnusedReturnValue")
     public synchronized MultiOutputStream addOutputStream(OutputStream delegate) {
         streams.add(delegate);
         return this;
     }
 
+    @SuppressWarnings("UnusedReturnValue")
     public synchronized MultiOutputStream removeOutputStream(OutputStream delegate) {
         streams.remove(delegate);
         return this;
