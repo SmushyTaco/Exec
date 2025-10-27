@@ -1,4 +1,6 @@
 # Exec
+[![Maven Central](https://img.shields.io/maven-central/v/com.smushytaco/exec.svg?label=maven%20central)](https://central.sonatype.com/artifact/com.smushytaco/exec)
+[![Javadocs](https://javadoc.io/badge2/com.smushytaco/exec/javadoc.svg)](https://javadoc.io/doc/com.smushytaco/exec)
 
 This is a small library allowing to launch external processes from Java code in the background,
 and correctly pipe their output e.g. into SLF4J, await either their termination or specific output, etc.
