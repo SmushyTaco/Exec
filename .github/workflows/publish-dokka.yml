@@ -30,8 +30,8 @@ jobs:
           java-version: 21
           cache: gradle
 
-      - name: Set up Gradle
-        uses: gradle/actions/setup-gradle@v5
+      - name: Make Gradle wrapper executable
+        run: chmod +x gradlew
 
       - name: Build Dokka HTML
         run: ./gradlew dokkaGenerateHtml
