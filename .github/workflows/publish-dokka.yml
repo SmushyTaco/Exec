@@ -36,32 +36,10 @@ jobs:
       - name: Build Dokka HTML
         run: ./gradlew dokkaGenerateHtml
 
-      - name: Prepare versioned site
-        env:
-          TAG_NAME: ${{ github.event.release.tag_name }}
-        run: |
-          set -euo pipefail
-
-          SRC="build/dokka/html"
-          test -d "$SRC" || { echo "Dokka output not found at $SRC"; exit 1; }
-
-          SAFE_TAG="${TAG_NAME//\//-}"
-
-          DEST="site"
-          VERSION_DIR="$DEST/versions/${SAFE_TAG}"
-          LATEST_DIR="$DEST/latest"
-
-          mkdir -p "$VERSION_DIR" "$LATEST_DIR"
-
-          cp -r "$SRC/." "$VERSION_DIR/"
-
-          rm -rf "${LATEST_DIR:?}/"*
-          cp -r "$SRC/." "$LATEST_DIR/"
-
       - name: Upload Pages artifact
         uses: actions/upload-pages-artifact@v4
         with:
-          path: site
+          path: build/dokka/html
 
   deploy:
     needs: build
