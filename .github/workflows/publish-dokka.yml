@@ -1,4 +1,4 @@
-name: Publish Dokka to GitHub Pages (release-only, versioned)
+name: Publish Dokka to GitHub Pages
 
 on:
   release:
