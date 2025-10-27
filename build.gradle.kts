@@ -52,7 +52,6 @@ tasks {
         targetCompatibility = JavaVersion.toVersion(javaVersion.get().toInt())
         withSourcesJar()
         withJavadocJar()
-
     }
     withType<JavaCompile>().configureEach {
         options.encoding = "UTF-8"
