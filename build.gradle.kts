@@ -1,10 +1,14 @@
 plugins {
     `java-library`
+    `maven-publish`
+    signing
     id("com.gradleup.shadow")
     id("org.jetbrains.dokka")
     id("dev.yumi.gradle.licenser")
+    id("co.uzzu.dotenv.gradle")
+    id("com.gradleup.nmcp")
 }
-val name = providers.gradleProperty("name")
+val projectName = providers.gradleProperty("name")
 val projectGroup = providers.gradleProperty("group")
 val projectVersion = providers.gradleProperty("version")
 val commonsExecVersion = providers.gradleProperty("commons_exec_version")
@@ -16,8 +20,9 @@ val junitJupiterVersion = providers.gradleProperty("junit_jupiter_version")
 val assertjCoreVersion = providers.gradleProperty("assertj_core_version")
 val javaVersion = providers.gradleProperty("java_version")
 val dokkaVersion = providers.gradleProperty("dokka_version")
-description = "Java library to launch external processes"
-base.archivesName = name.get()
+val projectDescription = "Java library used to launch external processes."
+description = projectDescription
+base.archivesName = projectName.get()
 group = projectGroup.get()
 version = projectVersion.get()
 repositories {
@@ -51,6 +56,7 @@ tasks {
         targetCompatibility = JavaVersion.toVersion(javaVersion.get().toInt())
         withSourcesJar()
         withJavadocJar()
+
     }
     withType<JavaCompile>().configureEach {
         options.encoding = "UTF-8"
@@ -69,10 +75,13 @@ tasks {
         configurations = listOf(project.configurations.shadow.get())
         relocate("org.apache.commons.exec", "${project.group.toString().lowercase()}.${base.archivesName.get().lowercase().replace('-', '_')}.shaded.org.apache.commons.exec")
     }
-    named("build") { dependsOn(shadowJar) }
-    named<Javadoc>("javadoc") { enabled = false }
-    named<Jar>("javadocJar") {
-        dependsOn(named("dokkaGenerateHtml"))
+    named("build") {
+        dependsOn(shadowJar, named("dokkaJar"))
+    }
+    register<Jar>("dokkaJar") {
+        group = JavaBasePlugin.DOCUMENTATION_GROUP
+        dependsOn(dokkaGenerateHtml)
+        archiveClassifier = "dokka"
         from(layout.buildDirectory.dir("dokka/html"))
     }
 }
@@ -81,4 +90,56 @@ license {
     include("**/*.java")
     include("**/*.kt")
     exclude("**/*.properties")
+}
+publishing {
+    publications {
+        create<MavenPublication>("maven") {
+            from(components["shadow"])
+            groupId = project.group.toString()
+            artifactId = base.archivesName.get()
+            version = project.version.toString()
+            artifact(tasks.named("sourcesJar"))
+            artifact(tasks.named("javadocJar"))
+            artifact(tasks.named("dokkaJar"))
+            pom {
+                name = projectName
+                description = projectDescription
+                url = "https://github.com/SmushyTaco/Exec"
+                licenses {
+                    license {
+                        name = "The Apache License, Version 2.0"
+                        url = "https://www.apache.org/licenses/LICENSE-2.0.txt"
+                        distribution = "repo"
+                    }
+                }
+                developers {
+                    developer {
+                        id = "smushytaco"
+                        name = "Nikan Radan"
+                        email = "personal@nikanradan.com"
+                    }
+                }
+                scm {
+                    url = "https://github.com/SmushyTaco/Exec"
+                    connection = "scm:git:https://github.com/SmushyTaco/Exec.git"
+                    developerConnection = "scm:git:ssh://git@github.com/SmushyTaco/Exec.git"
+                }
+            }
+        }
+    }
+}
+signing {
+    isRequired = true
+    useInMemoryPgpKeys(
+        providers.fileContents(layout.projectDirectory.file("./private-key.asc")).asText.get(),
+        env.fetch("PASSPHRASE", "")
+    )
+    sign(publishing.publications)
+}
+nmcp {
+    publishAllPublicationsToCentralPortal {
+        username = env.fetch("USERNAME_TOKEN", "")
+        password = env.fetch("PASSWORD_TOKEN", "")
+        publishingType = "USER_MANAGED"
+    }
 }
