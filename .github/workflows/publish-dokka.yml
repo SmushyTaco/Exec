@@ -1,0 +1,74 @@
+name: Publish Dokka to GitHub Pages (release-only, versioned)
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Validate Gradle Wrapper
+        uses: gradle/actions/wrapper-validation@v5
+
+      - name: Set up Java
+        uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v5
+
+      - name: Build Dokka HTML
+        run: ./gradlew dokkaGenerateHtml
+
+      - name: Prepare versioned site
+        env:
+          TAG_NAME: ${{ github.event.release.tag_name }}
+        run: |
+          set -euo pipefail
+
+          SRC="build/dokka/html"
+          test -d "$SRC" || { echo "Dokka output not found at $SRC"; exit 1; }
+
+          SAFE_TAG="${TAG_NAME//\//-}"
+
+          DEST="site"
+          VERSION_DIR="$DEST/versions/${SAFE_TAG}"
+          LATEST_DIR="$DEST/latest"
+
+          mkdir -p "$VERSION_DIR" "$LATEST_DIR"
+
+          cp -r "$SRC/." "$VERSION_DIR/"
+
+          rm -rf "${LATEST_DIR:?}/"*
+          cp -r "$SRC/." "$LATEST_DIR/"
+
+      - name: Upload Pages artifact
+        uses: actions/upload-pages-artifact@v4
+        with:
+          path: site
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
