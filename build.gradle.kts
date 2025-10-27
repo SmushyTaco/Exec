@@ -34,14 +34,10 @@ repositories {
 }
 dependencies {
     dokkaPlugin("org.jetbrains.dokka:kotlin-as-java-plugin:${dokkaVersion.get()}")
-
-    implementation("commons-io:commons-io:${commonsIoVersion.get()}")
-    implementation("org.jspecify:jspecify:${jspecifyVersion.get()}")
-    implementation("org.slf4j:slf4j-api:${slf4jVersion.get()}")
-
-    compileOnly("org.apache.commons:commons-exec:${commonsExecVersion.get()}-patched")
-    shadow("org.apache.commons:commons-exec:${commonsExecVersion.get()}-patched")
-    testImplementation("org.apache.commons:commons-exec:${commonsExecVersion.get()}-patched")
+    shadow("commons-io:commons-io:${commonsIoVersion.get()}")
+    shadow("org.jspecify:jspecify:${jspecifyVersion.get()}")
+    shadow("org.slf4j:slf4j-api:${slf4jVersion.get()}")
+    implementation("org.apache.commons:commons-exec:${commonsExecVersion.get()}-patched")
 
     testImplementation("org.apache.commons:commons-lang3:${commonsLang3Version.get()}")
     testImplementation("org.junit.jupiter:junit-jupiter:${junitJupiterVersion.get()}")
@@ -72,7 +68,9 @@ tasks {
     }
     shadowJar {
         archiveClassifier = ""
-        configurations = listOf(project.configurations.shadow.get())
+        dependencies {
+            include(dependency("org.apache.commons:commons-exec"))
+        }
         relocate("org.apache.commons.exec", "${project.group.toString().lowercase()}.${base.archivesName.get().lowercase().replace('-', '_')}.shaded.org.apache.commons.exec")
     }
     named("build") {
