@@ -129,12 +129,15 @@ publishing {
     }
 }
 signing {
-    isRequired = true
-    useInMemoryPgpKeys(
-        providers.fileContents(layout.projectDirectory.file("./private-key.asc")).asText.get(),
-        env.fetch("PASSPHRASE", "")
-    )
-    sign(publishing.publications)
+    val keyFile = layout.projectDirectory.file("./private-key.asc")
+    if (keyFile.asFile.exists()) {
+        isRequired = true
+        useInMemoryPgpKeys(
+            providers.fileContents(keyFile).asText.get(),
+            env.fetch("PASSPHRASE", "")
+        )
+        sign(publishing.publications)
+    }
 }
 nmcp {
     publishAllPublicationsToCentralPortal {
