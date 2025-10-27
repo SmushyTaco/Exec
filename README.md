@@ -37,8 +37,8 @@ String output = p.getConsole();
 
 If you need to, you can also attach a listener to get notified when the external process ends, by using `setProcessListener()` on the `ManagedProcessBuilder` with a `ManagedProcessListener` that implements `onProcessComplete()` and `onProcessFailed()`.
 
-We currently internally use Apache Commons Exec by building on top, extending and wrapping it,
-but without exposing this in its API, so that theoretically in the future this implementation detail could be changed.
+Currently, Apache Commons Exec is used internally by building on top of it, extending it, and wrapping it.
+All without exposing this in this API, so that theoretically in the future this implementation detail could be changed.
 
 Advantages
 ---
