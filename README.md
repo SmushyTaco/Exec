@@ -1,5 +1,6 @@
 # Exec
 [![Maven Central](https://img.shields.io/maven-central/v/com.smushytaco/exec.svg?label=maven%20central)](https://central.sonatype.com/artifact/com.smushytaco/exec)
+[![Dokka Docs](https://img.shields.io/badge/docs-dokka-brightgreen.svg)](https://smushytaco.github.io/Exec/latest/)
 [![Javadocs](https://javadoc.io/badge2/com.smushytaco/exec/javadoc.svg)](https://javadoc.io/doc/com.smushytaco/exec)
 
 This is a small library allowing to launch external processes from Java code in the background,
